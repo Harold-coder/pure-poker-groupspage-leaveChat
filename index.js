@@ -2,10 +2,15 @@ const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const groupsTableName = process.env.GROUPS_TABLE;
 const connectionsTableName = process.env.CONNECTIONS_TABLE;
+const apiGatewayEndpoint = process.env.WEBSOCKET_ENDPOINT;
 
 exports.handler = async (event) => {
     const { groupId, userId } = JSON.parse(event.body);
     const connectionId = event.requestContext.connectionId;
+
+    const apiGateway = new AWS.ApiGatewayManagementApi({
+        endpoint: apiGatewayEndpoint
+    });
 
     try {
         // Retrieve the group to ensure it exists and to get current usersConnected
@@ -43,6 +48,29 @@ exports.handler = async (event) => {
             TableName: connectionsTableName,
             Key: { connectionId: connectionId },
         }).promise();
+
+        // Broadcast message to all connections that a user has left the chat
+        const connections = await dynamoDb.scan({
+            TableName: connectionsTableName,
+            FilterExpression: 'groupId = :groupId',
+            ExpressionAttributeValues: {
+                ':groupId': groupId
+            }
+        }).promise();
+
+        const postCalls = connections.Items.map(async ({ connectionId }) => {
+            await apiGateway.postToConnection({
+                ConnectionId: connectionId,
+                Data: JSON.stringify({
+                    action: 'userLeft',
+                    userId: userId,
+                    groupId: groupId,
+                    message: `${userId} has left the chat.`
+                })
+            }).promise();
+        });
+
+        await Promise.all(postCalls);
 
         return { statusCode: 200, body: JSON.stringify({ message: "User left chat successfully.", action: 'leaveChat' }) };
     } catch (error) {
