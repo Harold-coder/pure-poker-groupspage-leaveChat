@@ -46,7 +46,7 @@ exports.handler = async (event) => {
         // Remove the connection from the connections table
         await dynamoDb.delete({
             TableName: connectionsTableName,
-            Key: { connectionId: connectionId },
+            Key: { connectionId },
         }).promise();
 
         // Broadcast message to all connections that a user has left the chat
