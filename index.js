@@ -44,10 +44,10 @@ exports.handler = async (event) => {
         }).promise();
 
         // Remove the connection from the connections table
-        await dynamoDb.delete({
-            TableName: connectionsTableName,
-            Key: { connectionId },
-        }).promise();
+        // await dynamoDb.delete({
+        //     TableName: connectionsTableName,
+        //     Key: { connectionId },
+        // }).promise();
 
         // Broadcast message to all connections that a user has left the chat
         const connections = await dynamoDb.scan({
